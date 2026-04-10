@@ -2,7 +2,7 @@ import logging
 
 from fastapi import FastAPI
 
-from app.api.routes import auth, buckets, characters, orders, reports, rules, sync, wallet, wallet_journal
+from app.api.routes import assets, auth, buckets, characters, contracts, industry, inventory, orders, reports, rules, sync, wallet, wallet_journal
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
 
@@ -22,3 +22,7 @@ app.include_router(reports.router)
 @app.get("/health")
 def health():
     return {"status": "ok"}
+app.include_router(assets.router)
+app.include_router(inventory.router)
+app.include_router(industry.router)
+app.include_router(contracts.router)
