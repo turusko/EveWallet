@@ -32,6 +32,8 @@ docker compose up --build
 ```
 Runs backend, frontend, postgres, and redis.
 
+Note: the compose `app` service overrides `DATABASE_URL`/`REDIS_URL` to use Docker service hostnames (`db`, `redis`) even if your local `.env` uses `localhost`.
+
 ## Production container deployment
 The root `Dockerfile` now builds the React frontend and bundles it with the FastAPI app in one image.
 - `http://<host>:8000/` serves the frontend UI.
