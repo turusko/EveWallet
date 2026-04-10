@@ -61,4 +61,4 @@ fi
 log "Starting container '$CONTAINER_NAME' on port $HOST_PORT..."
 docker run "${DOCKER_RUN_ARGS[@]}" "$IMAGE_NAME"
 
-log "Deployment complete. App should be available at http://<raspberry-pi-ip>:$HOST_PORT"
+log "Deployment complete. UI should be available at http://<raspberry-pi-ip>:$HOST_PORT and API docs at /docs"

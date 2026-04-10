@@ -32,6 +32,19 @@ docker compose up --build
 ```
 Runs backend, frontend, postgres, and redis.
 
+## Production container deployment
+The root `Dockerfile` now builds the React frontend and bundles it with the FastAPI app in one image.
+- `http://<host>:8000/` serves the frontend UI.
+- API endpoints remain under their existing paths (for example `/auth/login`, `/sync/jobs`).
+- API docs remain available at `/docs`.
+
+## Raspberry Pi auto deploy
+`autodeploy_pi.sh` deploys the same combined backend+frontend image to one container:
+```bash
+./autodeploy_pi.sh
+```
+By default this publishes on host port `8080`, so the UI is at `http://<pi-ip>:8080/`.
+
 ## EVE SSO setup
 Use EVE SSO OAuth 2.0 with your app credentials and callback URL. Configure:
 - `EVE_CLIENT_ID`
