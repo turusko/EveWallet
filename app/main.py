@@ -1,6 +1,7 @@
 import logging
 
 from fastapi import FastAPI
+from fastapi.responses import RedirectResponse
 
 from app.api.routes import assets, auth, buckets, characters, contracts, industry, inventory, orders, reports, rules, sync, wallet, wallet_journal
 
@@ -22,6 +23,23 @@ app.include_router(reports.router)
 @app.get("/health")
 def health():
     return {"status": "ok"}
+
+
+@app.get("/")
+def root() -> RedirectResponse:
+    return RedirectResponse(url="/docs", status_code=307)
+
+
+@app.get("/home")
+def home() -> RedirectResponse:
+    return RedirectResponse(url="/docs", status_code=307)
+
+
+@app.get("/swagger")
+def swagger_alias() -> RedirectResponse:
+    return RedirectResponse(url="/docs", status_code=307)
+
+
 app.include_router(assets.router)
 app.include_router(inventory.router)
 app.include_router(industry.router)
