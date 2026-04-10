@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, Enum, ForeignKey, String, UniqueConstraint, Uuid, func
+from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, String, UniqueConstraint, Uuid, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base, UUIDTimestampMixin
@@ -20,3 +20,4 @@ class BucketAssignment(UUIDTimestampMixin, Base):
     note: Mapped[str | None] = mapped_column(String(500))
     assignment_method: Mapped[str] = mapped_column(String(20), nullable=False, default="manual")
     assignment_rule_id: Mapped[str | None] = mapped_column(Uuid, ForeignKey("assignment_rules.id"))
+    locked: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)

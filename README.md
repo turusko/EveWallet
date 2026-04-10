@@ -1,109 +1,92 @@
-# EVE Online Project Profit Tracker (Phase 2 Backend)
+# EVE Online Project Profit Tracker (Phase 3)
 
-FastAPI backend for linking EVE characters, syncing wallet transactions/journal/orders (active + historical), assigning records into project buckets, running automatic assignment rules, scheduling sync jobs, and exporting bucket reports.
+Phase 3 extends cashflow tracking into inventory-aware accounting with FIFO lots, assets, industry jobs, contracts, and a minimal React UI.
 
-## Tech stack
+## Stack
+- Backend: FastAPI, SQLAlchemy 2.x, Alembic, PostgreSQL, Redis/RQ, httpx, Pydantic.
+- Frontend: React + Vite + TypeScript + Tailwind, TanStack Query, TanStack Table-ready pages.
 
-- Python 3.12
-- FastAPI
-- PostgreSQL
-- SQLAlchemy 2.x
-- Alembic
-- httpx
-- Redis + RQ
-- Pydantic
-
-## Environment variables
-
-Copy `.env.example` to `.env` and set values.
-
-Required + new Phase 2 values:
-
-- `DATABASE_URL`
-- `SECRET_KEY`
-- `EVE_CLIENT_ID`
-- `EVE_CLIENT_SECRET`
-- `EVE_REDIRECT_URI`
-- `EVE_ESI_BASE_URL`
-- `REDIS_URL=redis://localhost:6379/0`
-- `SYNC_USE_BACKGROUND_WORKER=true`
-- `SYNC_INTERVAL_MINUTES=15`
-
-## Install and run
-
+## Backend setup
 ```bash
 pip install -e .[dev]
 alembic upgrade head
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-## Redis and worker startup
-
+## Frontend setup
 ```bash
-docker compose up -d db
+cd frontend
+npm install
+npm run dev
+```
+
+## Redis worker startup
+```bash
 redis-server
 rq worker
 ```
 
-Worker task path used by RQ:
-
+## Docker compose
 ```bash
-app.worker.run_sync_job
+docker compose up --build
+```
+Runs backend, frontend, postgres, and redis.
+
+## EVE SSO setup
+Use EVE SSO OAuth 2.0 with your app credentials and callback URL. Configure:
+- `EVE_CLIENT_ID`
+- `EVE_CLIENT_SECRET`
+- `EVE_REDIRECT_URI`
+- `EVE_SSO_AUTHORIZE_URL`
+- `EVE_SSO_TOKEN_URL`
+- `EVE_ESI_BASE_URL`
+
+### Recommended scopes for Phase 3
+- Wallet/transactions/journal scopes from earlier phases.
+- Assets scope for character assets sync.
+- Industry jobs scope for character industry sync.
+- Contracts scope for character contracts sync.
+- Structure read scope for resolving Upwell structure names when accessible.
+
+## Environment variables
+Backend:
+```env
+APP_ENV=development
+APP_HOST=0.0.0.0
+APP_PORT=8000
+DATABASE_URL=postgresql+psycopg://user:pass@localhost:5432/eve_tracker
+REDIS_URL=redis://localhost:6379/0
+SECRET_KEY=change_me
+EVE_CLIENT_ID=...
+EVE_CLIENT_SECRET=...
+EVE_REDIRECT_URI=http://localhost:8000/auth/callback
+EVE_SSO_AUTHORIZE_URL=https://login.eveonline.com/v2/oauth/authorize
+EVE_SSO_TOKEN_URL=https://login.eveonline.com/v2/oauth/token
+EVE_ESI_BASE_URL=https://esi.evetech.net/latest
+FRONTEND_ORIGIN=http://localhost:5173
 ```
 
-## Scheduled sync behavior
-
-- `POST /sync/character/{character_id}` enqueues (or runs inline when background worker is disabled) a character sync job.
-- `POST /sync/all` syncs every linked character for the current user.
-- `GET /sync/jobs` and `GET /sync/jobs/{job_id}` expose job statuses and metrics.
-- Development setups can trigger recurring syncs every `SYNC_INTERVAL_MINUTES`.
-
-## Rule creation and rerun
-
-Rules are evaluated in ascending `priority`; matching uses AND semantics on `conditions_json`.
-
-Create rule example:
-
-```bash
-curl -X POST http://localhost:8000/rules \
-  -H 'Content-Type: application/json' \
-  -H 'X-User-Id: <user_uuid>' \
-  -d '{
-    "bucket_fk": "<bucket_uuid>",
-    "name": "Tax and Fees",
-    "priority": 10,
-    "stop_processing": true,
-    "conditions_json": {
-      "ref_types": ["transaction_tax", "brokers_fee"]
-    }
-  }'
+Frontend:
+```env
+VITE_API_BASE_URL=http://localhost:8000
 ```
 
-Rerun rules example:
+## Structure resolution
+`StructureService` resolves and caches location names in `resolved_locations`. If name resolution is unavailable due to access restrictions, responses keep a best-effort unresolved marker (`unresolved:<id>`), rather than failing sync.
 
-```bash
-curl -X POST http://localhost:8000/rules/run \
-  -H 'Content-Type: application/json' \
-  -H 'X-User-Id: <user_uuid>' \
-  -d '{"only_unassigned": true, "force_reassign": false}'
-```
+## FIFO accounting behavior
+- New inventory lots are created for acquisitions (wallet buys, contract/industry integrations).
+- Sales/material consumption consume oldest open lots first (FIFO).
+- Realised COGS is based on consumed lots.
+- Remaining lot quantities produce inventory-on-hand valuation.
 
-## Manual sync endpoints
+## Known limitations
+- No corp wallet/corp assets yet.
+- No weighted-average costing yet.
+- Unmatched sales can occur if prior inventory is missing.
+- Some structure names remain unresolved if authenticated access is unavailable.
 
-- `POST /wallet/sync/{character_id}`
-- `POST /wallet-journal/sync/{character_id}`
-- `POST /orders/sync/{character_id}?include_history=true`
-
-## Reporting and CSV export
-
-- `GET /reports/buckets/{bucket_id}/summary`
-- `GET /reports/buckets/{bucket_id}/export.csv`
-- `GET /reports/buckets/export.csv`
-
-Phase 2 realised P&L remains a **cashflow-based estimate** (not FIFO inventory lot accounting).
-
-## Test
-
+## Tests
 ```bash
 pytest
 ```
