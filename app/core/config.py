@@ -23,10 +23,14 @@ class Settings(BaseSettings):
         default=(
             "esi-wallet.read_character_wallet.v1 "
             "esi-markets.read_character_orders.v1 "
-            "esi-markets.read_character_orders.v1"
+            "esi-wallet.read_character_wallet.v1"
         )
     )
     token_encryption_key: str | None = None
+
+    redis_url: str = "redis://localhost:6379/0"
+    sync_use_background_worker: bool = True
+    sync_interval_minutes: int = 15
 
 
 @lru_cache

@@ -1,6 +1,6 @@
-# EVE Online Project Profit Tracker (Phase 1 Backend)
+# EVE Online Project Profit Tracker (Phase 2 Backend)
 
-FastAPI backend MVP for linking multiple EVE characters via SSO, syncing wallet transactions and market orders, assigning imported records to project buckets, and calculating simple bucket P&L summaries.
+FastAPI backend for linking EVE characters, syncing wallet transactions/journal/orders (active + historical), assigning records into project buckets, running automatic assignment rules, scheduling sync jobs, and exporting bucket reports.
 
 ## Tech stack
 
@@ -10,104 +10,97 @@ FastAPI backend MVP for linking multiple EVE characters via SSO, syncing wallet 
 - SQLAlchemy 2.x
 - Alembic
 - httpx
+- Redis + RQ
 - Pydantic
-
-## Prerequisites
-
-- Python 3.12+
-- PostgreSQL 16+ (or Docker)
-- `pip`
 
 ## Environment variables
 
-Copy `.env.example` to `.env` and set values:
+Copy `.env.example` to `.env` and set values.
 
-```bash
-cp .env.example .env
-```
+Required + new Phase 2 values:
 
-Required variables:
-
-- `APP_ENV`
-- `APP_HOST`
-- `APP_PORT`
 - `DATABASE_URL`
 - `SECRET_KEY`
 - `EVE_CLIENT_ID`
 - `EVE_CLIENT_SECRET`
 - `EVE_REDIRECT_URI`
-- `EVE_SSO_AUTHORIZE_URL`
-- `EVE_SSO_TOKEN_URL`
 - `EVE_ESI_BASE_URL`
+- `REDIS_URL=redis://localhost:6379/0`
+- `SYNC_USE_BACKGROUND_WORKER=true`
+- `SYNC_INTERVAL_MINUTES=15`
 
-## Create DB
-
-```bash
-createdb eve_tracker
-```
-
-Or use Docker compose:
-
-```bash
-docker compose up -d db
-```
-
-## Install dependencies
+## Install and run
 
 ```bash
 pip install -e .[dev]
-```
-
-## Run migrations
-
-```bash
 alembic upgrade head
-```
-
-## Start dev server
-
-```bash
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-## EVE SSO app configuration
-
-1. Create third-party app in EVE Developers portal.
-2. Set callback URL to `EVE_REDIRECT_URI` (default: `http://localhost:8000/auth/callback`).
-3. Copy client ID + secret into `.env`.
-
-### Required scopes
-
-- `esi-wallet.read_character_wallet.v1`
-- `esi-markets.read_character_orders.v1`
-
-## API flow
-
-1. `GET /auth/login`
-2. Complete EVE SSO in browser
-3. `GET /auth/callback?code=...`
-4. Repeat steps 1-3 to link additional characters
-5. `POST /wallet/sync/{character_id}`
-6. `POST /orders/sync/{character_id}`
-7. Create bucket, assign records, fetch reports
-
-## Example curl commands
+## Redis and worker startup
 
 ```bash
-curl http://localhost:8000/health
-curl http://localhost:8000/auth/login
-curl -X POST http://localhost:8000/buckets \
+docker compose up -d db
+redis-server
+rq worker
+```
+
+Worker task path used by RQ:
+
+```bash
+app.worker.run_sync_job
+```
+
+## Scheduled sync behavior
+
+- `POST /sync/character/{character_id}` enqueues (or runs inline when background worker is disabled) a character sync job.
+- `POST /sync/all` syncs every linked character for the current user.
+- `GET /sync/jobs` and `GET /sync/jobs/{job_id}` expose job statuses and metrics.
+- Development setups can trigger recurring syncs every `SYNC_INTERVAL_MINUTES`.
+
+## Rule creation and rerun
+
+Rules are evaluated in ascending `priority`; matching uses AND semantics on `conditions_json`.
+
+Create rule example:
+
+```bash
+curl -X POST http://localhost:8000/rules \
   -H 'Content-Type: application/json' \
   -H 'X-User-Id: <user_uuid>' \
-  -d '{"name":"Jita Flip","description":"April market run"}'
-curl -X GET "http://localhost:8000/reports/buckets/<bucket_id>/summary" -H 'X-User-Id: <user_uuid>'
+  -d '{
+    "bucket_fk": "<bucket_uuid>",
+    "name": "Tax and Fees",
+    "priority": 10,
+    "stop_processing": true,
+    "conditions_json": {
+      "ref_types": ["transaction_tax", "brokers_fee"]
+    }
+  }'
 ```
 
-## Docker compose (app + postgres)
+Rerun rules example:
 
 ```bash
-docker compose up --build
+curl -X POST http://localhost:8000/rules/run \
+  -H 'Content-Type: application/json' \
+  -H 'X-User-Id: <user_uuid>' \
+  -d '{"only_unassigned": true, "force_reassign": false}'
 ```
+
+## Manual sync endpoints
+
+- `POST /wallet/sync/{character_id}`
+- `POST /wallet-journal/sync/{character_id}`
+- `POST /orders/sync/{character_id}?include_history=true`
+
+## Reporting and CSV export
+
+- `GET /reports/buckets/{bucket_id}/summary`
+- `GET /reports/buckets/{bucket_id}/export.csv`
+- `GET /reports/buckets/export.csv`
+
+Phase 2 realised P&L remains a **cashflow-based estimate** (not FIFO inventory lot accounting).
 
 ## Test
 

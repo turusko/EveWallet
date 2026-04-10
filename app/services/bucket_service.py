@@ -8,6 +8,7 @@ from app.models.bucket_assignment import BucketAssignment
 from app.models.eve_character import EveCharacter
 from app.models.market_order import MarketOrder
 from app.models.project_bucket import ProjectBucket
+from app.models.wallet_journal_entry import WalletJournalEntry
 from app.models.wallet_transaction import WalletTransaction
 from app.schemas.bucket import AssignmentItem, BucketCreate, BucketUpdate
 
@@ -57,11 +58,17 @@ class BucketService:
                 .join(EveCharacter, WalletTransaction.character_fk == EveCharacter.id)
                 .where(WalletTransaction.id == source_id, EveCharacter.user_id == UUID(user_id))
             )
-        else:
+        elif item.source_type == "market_order":
             stmt = (
                 select(MarketOrder.id)
                 .join(EveCharacter, MarketOrder.character_fk == EveCharacter.id)
                 .where(MarketOrder.id == source_id, EveCharacter.user_id == UUID(user_id))
+            )
+        else:
+            stmt = (
+                select(WalletJournalEntry.id)
+                .join(EveCharacter, WalletJournalEntry.character_fk == EveCharacter.id)
+                .where(WalletJournalEntry.id == source_id, EveCharacter.user_id == UUID(user_id))
             )
         if not self.db.scalar(stmt):
             raise ValueError(f"Source does not belong to user: {item.source_uuid}")
@@ -88,6 +95,7 @@ class BucketService:
                     source_uuid=UUID(item.source_uuid),
                     assigned_by_user_id=UUID(user_id),
                     note=note,
+                    assignment_method="manual",
                 )
             )
             count += 1

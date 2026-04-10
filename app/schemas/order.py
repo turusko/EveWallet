@@ -14,6 +14,9 @@ class MarketOrderOut(BaseModel):
     volume_remain: int
     is_buy_order: bool
     status: str
+    is_history: bool
+    state: str | None = None
+    volume_filled: int | None = None
     issued_at: datetime
 
     model_config = {"from_attributes": True}

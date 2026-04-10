@@ -50,6 +50,16 @@ class ESIClient:
             res.raise_for_status()
             return res.json()
 
+
+    async def character_wallet_journal(self, character_id: int, access_token: str) -> list[dict[str, Any]]:
+        async with httpx.AsyncClient(timeout=30) as client:
+            res = await client.get(
+                f"{self.settings.eve_esi_base_url}/characters/{character_id}/wallet/journal/",
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
+            res.raise_for_status()
+            return res.json()
+
     async def character_orders(self, character_id: int, access_token: str, history: bool = False) -> list[dict[str, Any]]:
         route = "orders/history" if history else "orders"
         async with httpx.AsyncClient(timeout=30) as client:
