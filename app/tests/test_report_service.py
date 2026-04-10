@@ -1,3 +1,4 @@
+from datetime import datetime, UTC
 from decimal import Decimal
 
 from app.schemas.report import BucketSummary
@@ -10,34 +11,50 @@ class Dummy:
 
 
 class FakeDB:
-    def __init__(self, assignments, txs, orders):
+    def __init__(self, assignments, txs, journals, orders):
         self.assignments = assignments
         self.txs = txs
+        self.journals = journals
         self.orders = orders
 
     def scalars(self, stmt):
         text = str(stmt)
         if "bucket_assignments" in text:
-            if "wallet_transaction" in text:
-                return self.assignments["tx"]
-            return self.assignments["orders"]
+            return self.assignments
         if "wallet_transactions" in text:
             return self.txs
-        return self.orders
+        if "wallet_journal_entries" in text:
+            return self.journals
+        if "market_orders" in text:
+            return self.orders
+        if "eve_characters" in text:
+            return [Dummy(id="c1", last_synced_at=datetime(2026, 1, 1, tzinfo=UTC))]
+        return []
+
+    def scalar(self, stmt):
+        if "eve_characters" in str(stmt):
+            return datetime(2026, 1, 1, tzinfo=UTC)
+        return None
+
+    def get(self, model, key):
+        return Dummy(name="bucket", status="active")
 
 
 def test_bucket_summary_math():
-    assignments = {
-        "tx": [Dummy(source_uuid="a")],
-        "orders": [Dummy(source_uuid="b")],
-    }
-    txs = [Dummy(total_price=Decimal("100"), is_buy=True), Dummy(total_price=Decimal("220"), is_buy=False)]
-    orders = [
-        Dummy(price=Decimal("10"), volume_remain=5, is_buy_order=False, status="open", broker_fee=Decimal("2"), sales_tax=Decimal("1")),
-        Dummy(price=Decimal("7"), volume_remain=3, is_buy_order=True, status="open", broker_fee=Decimal("0"), sales_tax=Decimal("0")),
+    assignments = [
+        Dummy(source_type="wallet_transaction", source_uuid="a", assignment_method="rule", bucket_fk="b"),
+        Dummy(source_type="wallet_journal", source_uuid="j1", assignment_method="rule", bucket_fk="b"),
+        Dummy(source_type="wallet_journal", source_uuid="j2", assignment_method="rule", bucket_fk="b"),
+        Dummy(source_type="market_order", source_uuid="o1", assignment_method="rule", bucket_fk="b"),
     ]
+    txs = [Dummy(character_fk="c1", total_price=Decimal("100"), is_buy=True), Dummy(character_fk="c1", total_price=Decimal("220"), is_buy=False)]
+    journals = [
+        Dummy(character_fk="c1", amount=Decimal("-2"), ref_type="brokers_fee"),
+        Dummy(character_fk="c1", amount=Decimal("-1"), ref_type="transaction_tax"),
+    ]
+    orders = [Dummy(character_fk="c1", price=Decimal("10"), volume_remain=5, is_buy_order=False, status="open")]
 
-    summary = ReportService(FakeDB(assignments, txs, orders)).bucket_summary("00000000-0000-0000-0000-000000000001")
+    summary = ReportService(FakeDB(assignments, txs, journals, orders)).bucket_summary("00000000-0000-0000-0000-000000000001")
     assert isinstance(summary, BucketSummary)
-    assert summary.realized_pnl == Decimal("117")
-    assert summary.unrealized_estimate == Decimal("29")
+    assert summary.realised_pnl == Decimal("117")
+    assert summary.unrealised_estimate == Decimal("50")

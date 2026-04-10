@@ -26,7 +26,7 @@ class BucketOut(BaseModel):
 
 
 class AssignmentItem(BaseModel):
-    source_type: Literal["wallet_transaction", "market_order"]
+    source_type: Literal["wallet_transaction", "wallet_journal", "market_order"]
     source_uuid: str
 
 
