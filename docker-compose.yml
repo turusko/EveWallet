@@ -20,6 +20,9 @@ services:
     build: .
     env_file:
       - .env
+    environment:
+      DATABASE_URL: postgresql+psycopg://user:pass@db:5432/eve_tracker
+      REDIS_URL: redis://redis:6379/0
     depends_on:
       - db
       - redis
