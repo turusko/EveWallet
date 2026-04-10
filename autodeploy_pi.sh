@@ -5,7 +5,6 @@ set -euo pipefail
 # Default published port: 8080 -> container port 8000.
 
 REPO_DIR="${REPO_DIR:-$HOME/EveWallet}"
-BRANCH="${BRANCH:-work}"
 CONTAINER_NAME="${CONTAINER_NAME:-evewallet-app}"
 IMAGE_NAME="${IMAGE_NAME:-evewallet:latest}"
 HOST_PORT="${HOST_PORT:-8080}"
@@ -33,10 +32,10 @@ fi
 
 cd "$REPO_DIR"
 
-log "Fetching latest code from branch '$BRANCH'..."
-git fetch origin "$BRANCH"
-git checkout "$BRANCH"
-git reset --hard "origin/$BRANCH"
+log "Updating current branch with latest remote changes (no branch switch)..."
+current_branch="$(git rev-parse --abbrev-ref HEAD)"
+git fetch origin "$current_branch"
+git pull --ff-only origin "$current_branch"
 
 log "Building Docker image '$IMAGE_NAME'..."
 docker build -t "$IMAGE_NAME" .
