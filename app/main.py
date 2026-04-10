@@ -2,7 +2,7 @@ import logging
 from pathlib import Path
 
 from fastapi import FastAPI
-from fastapi.responses import RedirectResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.api.routes import assets, auth, buckets, characters, contracts, industry, inventory, orders, reports, rules, sync, wallet, wallet_journal
@@ -52,4 +52,14 @@ app.include_router(industry.router)
 app.include_router(contracts.router)
 
 if HAS_FRONTEND:
-    app.mount("/", StaticFiles(directory=FRONTEND_DIST_DIR, html=True), name="frontend")
+    app.mount("/assets", StaticFiles(directory=FRONTEND_DIST_DIR / "assets"), name="frontend-assets")
+
+    @app.get("/favicon.ico", include_in_schema=False)
+    def favicon() -> FileResponse:
+        return FileResponse(FRONTEND_DIST_DIR / "favicon.ico")
+
+    @app.get("/tools", include_in_schema=False)
+    @app.get("/tools/{path:path}", include_in_schema=False)
+    @app.get("/login", include_in_schema=False)
+    def serve_frontend(path: str = "") -> FileResponse:
+        return FileResponse(FRONTEND_DIST_DIR / "index.html")
